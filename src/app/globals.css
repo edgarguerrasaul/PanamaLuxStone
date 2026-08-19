@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-serif: Georgia, "Times New Roman", serif;
+}
+
+body {
+  @apply bg-white text-neutral-900 antialiased transition-colors duration-200 dark:bg-neutral-950 dark:text-neutral-100;
+}
+
+.container-app {
+  @apply mx-auto max-w-7xl px-4 sm:px-6 lg:px-8;
+}
+
+.btn-primary {
+  @apply inline-flex items-center justify-center rounded-md bg-neutral-900 px-5 py-3 text-sm font-medium text-white transition hover:bg-gold-600 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gold-600 dark:hover:bg-gold-500;
+}
+
+.btn-secondary {
+  @apply inline-flex items-center justify-center rounded-md border border-neutral-300 px-5 py-3 text-sm font-medium text-neutral-900 transition hover:border-neutral-900 dark:border-neutral-700 dark:text-neutral-100 dark:hover:border-neutral-400;
+}
+
+/* Efecto flip 3D de las tarjetas de producto (ver ProductCard.tsx) */
+.flip-card-inner {
+  transform-style: preserve-3d;
+}
+.flip-card-face {
+  backface-visibility: hidden;
+}
+.flip-card-back {
+  transform: rotateY(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flip-card-inner,
+  .flip-card-face img {
+    transition: none !important;
+  }
+}

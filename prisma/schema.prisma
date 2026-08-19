@@ -1,0 +1,194 @@
+// Esquema de la base de datos.
+// Cada "model" de aquí abajo termina siendo una tabla real.
+// Para desarrollo local usamos SQLite (cero configuración).
+// Para producción, cambia DATABASE_URL en .env a una base Postgres
+// (por ejemplo Neon o Supabase) — Prisma no necesita más cambios.
+//
+// Nota: los campos de "estado" (status, type, etc.) usan String en vez de
+// enum porque SQLite (usado en desarrollo local) no soporta enums nativos
+// en Prisma. Los valores válidos están documentados en cada comentario.
+//
+// Flujo de estados de un pedido (Order.status), según la especificación:
+//   PENDIENTE_PAGO -> PENDIENTE_CONFIRMACION (transferencia/Yappy, esperando
+//   que el admin verifique el comprobante) -> CONFIRMADO -> EN_PREPARACION
+//   -> ENVIADO. También puede pasar a CANCELADO en cualquier punto.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Collection {
+  id          String    @id @default(cuid())
+  slug        String    @unique
+  name        String
+  description String
+  sortOrder   Int       @default(0)
+  products    Product[]
+}
+
+model Product {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  name         String
+  subtitle     String
+  description  String
+  finish       String // ej. "Pulido / Matt"
+  toneBase     String
+  vein         String
+  usage        String
+  thicknessMm  Int      @default(12)
+  pricePerM2   Float
+  priceConfirmed Boolean @default(true) // false = precio estimado, falta confirmar
+  descriptionConfirmed Boolean @default(true) // false = descripción borrador de Claude, sin confirmar
+  hasPlaceholderImage Boolean @default(false) // true = la foto es un relleno "FOTO PENDIENTE", no el producto real
+  imageUrl     String
+  thumbUrl     String
+  featured     Boolean  @default(false)
+  // true = hay stock local, aparece en la pestaña "Compra Inmediata".
+  // false = solo aparece en "Compra por Pedido" (importación, 4-6 meses).
+  // Editable desde el panel de administrador (/admin/productos).
+  immediateStock Boolean @default(false)
+  // Formatos de corte disponibles para este modelo. JSON con la forma:
+  // [{ "widthCm": 320, "heightCm": 160, "thicknessesCm": [1.2, 1.5] }, ...]
+  // El precio NO cambia por medida/espesor (se cobra por m² real), esto
+  // es solo para mostrar las opciones de corte disponibles al cliente.
+  availableSizes String @default("[{\"widthCm\":320,\"heightCm\":160,\"thicknessesCm\":[1.2,1.5]},{\"widthCm\":240,\"heightCm\":80,\"thicknessesCm\":[1.2,1.5]},{\"widthCm\":200,\"heightCm\":70,\"thicknessesCm\":[1.2,1.5]}]")
+  collection   Collection @relation(fields: [collectionId], references: [id])
+  collectionId String
+  orderItems   OrderItem[]
+  quotes       Quote[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Customer {
+  id        String    @id @default(cuid())
+  name      String
+  email     String    @unique
+  phone     String?
+  createdAt DateTime  @default(now())
+  orders    Order[]
+  quotes    Quote[]
+}
+
+// Zonas de entrega (acarreo), cargadas desde la hoja "Supuestos" del
+// Excel de costos. Editable desde /admin/acarreo.
+model FreightZone {
+  id           String   @id @default(cuid())
+  name         String   @unique // ej. "Ciudad de Panamá", "Penonomé", "Santiago", "Chiriquí"
+  costPerSlab  Float // costo en USD por placa (3200mm x 1600mm = 5.12 m²) entregada en esa zona
+  sortOrder    Int      @default(0)
+  active       Boolean  @default(true)
+  orders       Order[]
+  quotes       Quote[]
+}
+
+model Order {
+  id              String        @id @default(cuid())
+  customer        Customer      @relation(fields: [customerId], references: [id])
+  customerId      String
+  status          String        @default("PENDIENTE_PAGO") // PENDIENTE_PAGO | PENDIENTE_CONFIRMACION | CONFIRMADO | EN_PREPARACION | ENVIADO | CANCELADO
+  paymentMethod   String // YAPPY | CARD | TRANSFER
+  providerRef     String? // referencia que devuelve la pasarela de pago
+  currency        String        @default("USD")
+  // Modalidad de compra en la que se armó el pedido (viene del carrito).
+  // "pedido" = importación 4-6 meses. "inmediato" = stock local.
+  purchaseMode    String        @default("pedido")
+  totalAmount     Float
+  freightZone     FreightZone?  @relation(fields: [freightZoneId], references: [id])
+  freightZoneId   String?
+  freightCost     Float         @default(0)
+  // URL del comprobante de transferencia/Yappy subido por el cliente
+  // (vía /api/upload). El admin lo revisa y confirma manualmente.
+  proofOfPaymentUrl String?
+  items           OrderItem[]
+  shippingAddress String?
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  emailLogs       EmailLog[]
+}
+
+model OrderItem {
+  id          String  @id @default(cuid())
+  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId     String
+  product     Product @relation(fields: [productId], references: [id])
+  productId   String
+  areaM2      Float
+  unitPrice   Float
+  subtotal    Float
+  // Medida/espesor elegidos por el cliente (informativo, no cambia el precio).
+  sizeLabel   String?
+  thicknessCm Float?
+}
+
+// Representa una cotización generada desde el "Cotizador" (calculadora
+// de cocina): mide superficies, sube una foto y escoge una piedra.
+model Quote {
+  id             String      @id @default(cuid())
+  customer       Customer?   @relation(fields: [customerId], references: [id])
+  customerId     String?
+  contactEmail   String
+  contactPhone   String?
+  product        Product?    @relation(fields: [productId], references: [id])
+  productId      String?
+  measurements   String // JSON con las superficies medidas (encimera, frentes, isla, etc.)
+  areaTotalM2    Float
+  wasteMarginPct Float       @default(10) // % de desperdicio agregado al calcular láminas
+  slabsNeeded    Int         @default(0)
+  estimatedTotal Float // materiales, sin acarreo
+  freightZone    FreightZone? @relation(fields: [freightZoneId], references: [id])
+  freightZoneId  String?
+  freightCost    Float       @default(0)
+  totalWithFreight Float     @default(0)
+  photoUrl       String?
+  wantsRender    Boolean     @default(false)
+  status         String      @default("NEW") // NEW | CONTACTED | CONVERTED | DISCARDED
+  createdAt      DateTime    @default(now())
+  emailLogs      EmailLog[]
+}
+
+// Instaladores recomendados, mostrados en /instaladores organizados por
+// provincia. Editable desde /admin/instaladores — nunca hardcodeado.
+model Installer {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String
+  province  String
+  photoUrl  String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
+// Mensajes enviados desde el formulario de /contacto.
+model ContactMessage {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  message   String
+  handled   Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+// Cola simple de correos. El cron (cada hora) busca los PENDING y los envía.
+model EmailLog {
+  id        String      @id @default(cuid())
+  to        String
+  type      String // ORDER_CONFIRMATION | QUOTE_FOLLOWUP | QUOTE_RECEIVED | PAYMENT_FAILED
+  status    String      @default("PENDING") // PENDING | SENT | FAILED
+  order     Order?      @relation(fields: [orderId], references: [id])
+  orderId   String?
+  quote     Quote?      @relation(fields: [quoteId], references: [id])
+  quoteId   String?
+  attempts  Int         @default(0)
+  lastError String?
+  scheduledFor DateTime @default(now())
+  sentAt    DateTime?
+  createdAt DateTime    @default(now())
+}
