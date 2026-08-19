@@ -94,6 +94,7 @@ export default function SideCart() {
                       <div className="flex-1">
                         <p className="text-sm font-medium">{item.name}</p>
                         <p className="text-xs text-neutral-500 dark:text-neutral-400">
+                          {item.slabs ? `${item.slabs} lámina${item.slabs === 1 ? "" : "s"} de ` : ""}
                           {item.sizeLabel && `${item.sizeLabel}`}
                           {item.thicknessCm && ` · ${item.thicknessCm} cm`}
                         </p>

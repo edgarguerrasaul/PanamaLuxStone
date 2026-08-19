@@ -55,6 +55,7 @@ export default function CarritoPage() {
                 <p className="font-medium">{item.name}</p>
                 <p className="text-sm text-neutral-500 dark:text-neutral-400">
                   ${item.pricePerM2}/m²
+                  {item.slabs && ` · ${item.slabs} lámina${item.slabs === 1 ? "" : "s"}`}
                   {item.sizeLabel && ` · ${item.sizeLabel}`}
                   {item.thicknessCm && ` · ${item.thicknessCm} cm`}
                 </p>

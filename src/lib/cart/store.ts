@@ -19,6 +19,8 @@ export interface CartItem {
   sizeLabel?: string;
   /** Espesor elegido en cm, ej. 1.2 o 1.5. */
   thicknessCm?: number;
+  /** Cantidad de láminas de esta medida (areaM2 = slabs × área de una lámina). Opcional por compatibilidad con líneas viejas guardadas sin este dato. */
+  slabs?: number;
   /** De qué pestaña vino el ítem: "pedido" (4-6 meses) o "inmediato" (stock local). */
   mode: PurchaseMode;
 }
@@ -51,7 +53,20 @@ export const useCart = create<CartState>()(
           const existing = state.items.find((i) => cartLineId(i) === id);
           if (existing) {
             return {
-              items: state.items.map((i) => (cartLineId(i) === id ? { ...i, areaM2: i.areaM2 + item.areaM2 } : i)),
+              items: state.items.map((i) =>
+                cartLineId(i) === id
+                  ? {
+                      ...i,
+                      areaM2: i.areaM2 + item.areaM2,
+                      // Si ambas líneas traen conteo de láminas, se suman; si
+                      // cualquiera de las dos no lo trae (ej. una línea vieja
+                      // guardada antes de este cambio), se deja de contar
+                      // láminas para esa línea en vez de mostrar un número
+                      // incorrecto.
+                      slabs: i.slabs !== undefined && item.slabs !== undefined ? i.slabs + item.slabs : undefined,
+                    }
+                  : i
+              ),
             };
           }
           return { items: [...state.items, item] };
@@ -59,7 +74,10 @@ export const useCart = create<CartState>()(
       removeLine: (lineId) => set((state) => ({ items: state.items.filter((i) => cartLineId(i) !== lineId) })),
       updateLineArea: (lineId, areaM2) =>
         set((state) => ({
-          items: state.items.map((i) => (cartLineId(i) === lineId ? { ...i, areaM2 } : i)),
+          // Editar el m² a mano (desde el carrito) desconecta la línea del
+          // conteo de láminas, porque ya no es necesariamente un múltiplo
+          // exacto del área de una lámina.
+          items: state.items.map((i) => (cartLineId(i) === lineId ? { ...i, areaM2, slabs: undefined } : i)),
         })),
       clear: () => set({ items: [] }),
       total: () => get().items.reduce((sum, i) => sum + i.areaM2 * i.pricePerM2, 0),
