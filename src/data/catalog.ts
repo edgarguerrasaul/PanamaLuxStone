@@ -70,6 +70,26 @@ export type CatalogProduct = {
   immediateStock?: boolean;
 };
 
+// Medidas y espesores disponibles para TODOS los modelos (regla del
+// proveedor, no varía por producto — 2026-08-19, indicado por Edgar):
+//   - 320 × 160 cm: SOLO se consigue en 1.2 cm de espesor.
+//   - 240 × 80 cm y 200 × 70 cm: se consiguen en 1.2 cm y en 1.5 cm.
+// Esto se guarda como JSON en `Product.availableSizes` (ver
+// prisma/schema.prisma) y `prisma/seed.ts` lo aplica a cada producto al
+// sembrar/actualizar la base de datos. Si el proveedor cambia esta regla,
+// actualiza solo aquí y vuelve a correr `npm run db:seed`.
+export const STANDARD_AVAILABLE_SIZES: {
+  widthCm: number;
+  heightCm: number;
+  thicknessesCm: number[];
+}[] = [
+  { widthCm: 320, heightCm: 160, thicknessesCm: [1.2] },
+  { widthCm: 240, heightCm: 80, thicknessesCm: [1.2, 1.5] },
+  { widthCm: 200, heightCm: 70, thicknessesCm: [1.2, 1.5] },
+];
+
+export const STANDARD_AVAILABLE_SIZES_JSON = JSON.stringify(STANDARD_AVAILABLE_SIZES);
+
 export const collections: CatalogCollection[] = [
   {
     slug: "blancos-y-claros",

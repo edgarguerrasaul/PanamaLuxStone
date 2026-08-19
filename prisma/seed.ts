@@ -3,7 +3,7 @@
 // (create-next-app + prisma db push ya deben haberse ejecutado antes)
 
 import { PrismaClient } from "@prisma/client";
-import { collections, products } from "../src/data/catalog";
+import { collections, products, STANDARD_AVAILABLE_SIZES_JSON } from "../src/data/catalog";
 import { FREIGHT_ZONES } from "../src/data/logistics";
 
 const prisma = new PrismaClient();
@@ -44,6 +44,11 @@ async function main() {
         featured: p.featured ?? false,
         immediateStock: p.immediateStock ?? false,
         collectionId: collection.id,
+        // Se actualiza en cada seed para que, si cambia la regla de
+        // medidas/espesores del proveedor (ver src/data/catalog.ts), los
+        // productos que ya existían en la base también queden al día —
+        // no solo los que se crean de cero.
+        availableSizes: STANDARD_AVAILABLE_SIZES_JSON,
       },
       create: {
         slug: p.slug,
@@ -64,6 +69,7 @@ async function main() {
         featured: p.featured ?? false,
         immediateStock: p.immediateStock ?? false,
         collectionId: collection.id,
+        availableSizes: STANDARD_AVAILABLE_SIZES_JSON,
       },
     });
   }

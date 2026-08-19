@@ -54,10 +54,14 @@ model Product {
   // Editable desde el panel de administrador (/admin/productos).
   immediateStock Boolean @default(false)
   // Formatos de corte disponibles para este modelo. JSON con la forma:
-  // [{ "widthCm": 320, "heightCm": 160, "thicknessesCm": [1.2, 1.5] }, ...]
+  // [{ "widthCm": 320, "heightCm": 160, "thicknessesCm": [1.2] }, ...]
   // El precio NO cambia por medida/espesor (se cobra por m² real), esto
   // es solo para mostrar las opciones de corte disponibles al cliente.
-  availableSizes String @default("[{\"widthCm\":320,\"heightCm\":160,\"thicknessesCm\":[1.2,1.5]},{\"widthCm\":240,\"heightCm\":80,\"thicknessesCm\":[1.2,1.5]},{\"widthCm\":200,\"heightCm\":70,\"thicknessesCm\":[1.2,1.5]}]")
+  // Regla del proveedor (2026-08-19): 320x160 solo viene en 1.2cm; 240x80
+  // y 200x70 vienen en 1.2cm y 1.5cm. Ver STANDARD_AVAILABLE_SIZES en
+  // src/data/catalog.ts (fuente de verdad — el seed la aplica a todos los
+  // productos existentes, no solo a los nuevos).
+  availableSizes String @default("[{\"widthCm\":320,\"heightCm\":160,\"thicknessesCm\":[1.2]},{\"widthCm\":240,\"heightCm\":80,\"thicknessesCm\":[1.2,1.5]},{\"widthCm\":200,\"heightCm\":70,\"thicknessesCm\":[1.2,1.5]}]")
   collection   Collection @relation(fields: [collectionId], references: [id])
   collectionId String
   orderItems   OrderItem[]
